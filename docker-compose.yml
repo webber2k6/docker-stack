@@ -1,0 +1,120 @@
+version: "3.7"
+
+networks:
+  web:
+  backend:
+
+volumes:
+  db_data:
+  composer_data:
+
+services:
+
+  # LOAD BALANCER
+  traefik:
+    image: traefik
+    command:
+      - "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    restart: always
+    networks:
+      - web
+      - backend
+    ports:
+      - "${TRAEFIK_PORT_HTTP:-80}:80"
+      - "${TRAEFIK_PORT_HTTPS:-443}:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${DEV_HOST_DOMAIN}`)"
+      - "traefik.http.services.traefik.loadBalancer.server.port=8080"
+
+  # INFRASTRUKTUR
+  mysql:
+    image: mariadb
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    restart: always
+    networks:
+      - backend
+    ports:
+      - ${MYSQL_PORT}:3306
+    volumes:
+      - db_data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${DB_DATABASE}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mysql.rule=Host(`mysql.${PROJECT_NAME}.${DEV_HOST_DOMAIN}`)"
+  
+  mssql:
+    image: mcr.microsoft.com/mssql/server
+    #restart: always
+    networks:
+      - backend
+    ports:
+      - ${MSSQL_PORT}:1433
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=${DB_ROOT_PASSWORD}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mssql.rule=Host(`mssql.${PROJECT_NAME}.${DEV_HOST_DOMAIN}`)"
+
+  mail:
+    image: djfarrelly/maildev
+    networks:
+      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mail.rule=Host(`mail.${PROJECT_NAME}.${DEV_HOST_DOMAIN}`)"
+      - "traefik.http.services.mail.loadBalancer.server.port=80"
+
+  # BACKEND SYMFONY
+  php:
+    build:
+      context: php
+      args:
+        TIMEZONE: ${TIMEZONE}
+    restart: always
+    networks:
+      - backend
+    volumes:
+      - ./symfony:/var/www/html
+      - composer_data:/root/.composer
+    depends_on:
+      - mysql
+      - mail
+
+  nginx:
+    build: nginx
+    restart: always
+    networks:
+      - backend
+    links:
+      - php:php
+    volumes:
+      - ./symfony:/var/www/html
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nginx.rule=Host(`php.${PROJECT_NAME}.${DEV_HOST_DOMAIN}`)"
+      - "traefik.http.services.nginx.loadBalancer.server.port=80"
+
+  # BACKEND NET CORE
+  netcore:
+    #build: netcore
+    image: mcr.microsoft.com/dotnet/core/samples:aspnetapp
+    restart: always
+    networks:
+      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.netcore.rule=Host(`core.${PROJECT_NAME}.${DEV_HOST_DOMAIN}`)"
+      - "traefik.http.services.netcore.loadBalancer.server.port=80"
+

@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <LangVersion>8</LangVersion>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="out\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Remove="out\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="out\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Remove="out\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <_ContentIncludedByDefault Remove="out\web.config" />
+    <_ContentIncludedByDefault Remove="out\appsettings.Development.json" />
+    <_ContentIncludedByDefault Remove="out\appsettings.json" />
+    <_ContentIncludedByDefault Remove="out\Sample.deps.json" />
+    <_ContentIncludedByDefault Remove="out\Sample.runtimeconfig.json" />
+  </ItemGroup>
+
+</Project>
